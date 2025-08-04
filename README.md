@@ -48,7 +48,18 @@ cd discord-IP-bot
 ```bash
 # 建立虛擬環境
 python -m venv venv
+```
 
+#### Windows PowerShell 特別設定
+
+**⚠️ Windows 用戶重要提醒**：如果遇到「無法載入檔案，因為這個系統上已停用指令碼執行」錯誤，請先執行以下命令：
+
+```powershell
+# 允許當前用戶執行本地腳本（僅需執行一次）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+```bash
 # 啟動虛擬環境
 # macOS/Linux:
 source venv/bin/activate
@@ -107,6 +118,10 @@ venv\Scripts\activate
 
 # 確認虛擬環境已啟動（命令提示符前會顯示 (venv)）
 ```
+
+**🔧 Windows 故障排除**：
+- 如果出現執行政策錯誤，請先執行：`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+- 或者使用替代方法：`venv\Scripts\python.exe main.py --test`
 
 ### 🤖 排程模式（每日自動執行）
 

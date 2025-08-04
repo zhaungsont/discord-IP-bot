@@ -60,7 +60,7 @@ class ConfigManager:
             "discord": {
                 "webhook_url": self._get_env("DISCORD_WEBHOOK_URL"),
                 "message_template": self._get_env(
-                    "DISCORD_MESSAGE_TEMPLATE", "Minecraft Server IP: {ip}:25565"
+                    "DISCORD_MESSAGE_TEMPLATE", "Minecraft Server IP Updated: {ip}:25565"
                 ),
                 "retry_attempts": self._get_env_int("DISCORD_RETRY_ATTEMPTS", 3),
                 "timeout": self._get_env_int("DISCORD_TIMEOUT", 10),
