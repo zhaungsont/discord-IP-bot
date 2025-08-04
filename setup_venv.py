@@ -96,10 +96,8 @@ def create_env_file():
     # 建立 .env.example 檔案
     env_example_content = """# Discord IP Bot 環境變數設定
 
-# Discord設定
-DISCORD_BOT_TOKEN=your_bot_token_here
-DISCORD_CHANNEL_ID=your_channel_id_here
-DISCORD_GUILD_ID=your_guild_id_here
+# Discord Webhook 設定 (唯一需要的Discord配置)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
 
 # 應用程式設定
 APP_NAME=Discord IP Bot

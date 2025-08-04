@@ -58,11 +58,12 @@ Discord IP Bot - 自動化IP地址監控與通知機器人
   - ✅ 完整單元測試與整合測試
 - [x] **任務2.2**: Discord通信模組開發 ✅ **已完成**
   - ✅ Discord Webhook API 通信功能 (MacOS測試通過)
-  - ✅ 簡潔的訊息格式化 ("Minecraft Server IP is {ip}")
+  - ✅ 優化訊息格式化 ("Minecraft Server IP: {ip}:25565")
   - ✅ 完整錯誤處理與重試機制
   - ✅ 跨平台相容性 (MacOS驗證)
-  - ✅ 完整單元測試 (19/19 通過)
+  - ✅ 完整單元測試 (22/22 通過)
   - ✅ 模組整合測試 (與IP detector整合)
+  - ✅ 簡化環境變數設定 (只需DISCORD_WEBHOOK_URL)
 - [ ] **任務2.3**: 設定管理模組開發
 - [ ] **任務2.4**: 日誌系統模組開發
 
@@ -203,18 +204,18 @@ class IPDetector:
 #### 2. Discord通信模組 (discord_client.py)
 ```python
 class DiscordClient:
-    """Discord通信客戶端"""
+    """Discord Webhook 通信客戶端"""
     
-    def __init__(self, token: str, channel_id: str):
-        """初始化Discord客戶端"""
+    def __init__(self, webhook_url: str, config: dict = None):
+        """初始化Discord Webhook客戶端 (只需要Webhook URL)"""
         pass
     
-    def format_message(self, ip_data: dict) -> str:
-        """格式化IP資訊為Discord訊息"""
+    def send_ip_notification(self, ip_address: str) -> bool:
+        """發送Minecraft伺服器IP通知"""
         pass
     
-    def send_message(self, message: str) -> bool:
-        """發送訊息到Discord頻道"""
+    def send_minecraft_server_notification(self, ip_data: dict) -> bool:
+        """發送Minecraft伺服器通知 (只使用公共IP)"""
         pass
     
     def test_connection(self) -> bool:
@@ -248,10 +249,8 @@ class ConfigManager:
 
 #### 環境變數 (.env)
 ```env
-# Discord設定
-DISCORD_BOT_TOKEN=your_bot_token_here
-DISCORD_CHANNEL_ID=your_channel_id_here
-DISCORD_GUILD_ID=your_guild_id_here
+# Discord Webhook 設定 (唯一需要的Discord配置)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
 
 # 應用程式設定
 APP_NAME=Discord IP Bot
@@ -333,9 +332,9 @@ except Exception as e:
 
 ### 安裝需求
 - Python 3.10
-- Python venv 虛擬環境
+- Python venv 虛擬環境  
 - 網路連線
-- Discord機器人權限設定
+- Discord Webhook URL (從Discord伺服器設定中取得)
 
 ### 安裝步驟
 1. **複製專案**
@@ -352,7 +351,7 @@ except Exception as e:
 3. **設定環境變數**
    ```bash
    cp .env.example .env
-   # 編輯.env檔案，填入Discord Token等資訊
+   # 編輯.env檔案，填入Discord Webhook URL
    ```
 
 4. **測試執行**
