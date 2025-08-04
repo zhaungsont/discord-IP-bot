@@ -666,6 +666,20 @@ Register-ScheduledTask -TaskName "Discord IP Bot" -Action $action -Trigger $trig
 ## 📋 更新歷史
 
 ### 2024-08-04
+
+#### 配置系統改進和排程時間調整
+- **修改**: 完善配置系統和文件說明
+  - 創建 `.env.example` 範例配置文件
+  - 創建實際的 `.env` 配置文件  
+  - 修改預設排程時間從 `09:00` 改為 `21:30`（每天晚上9:30執行）
+  - 大幅更新 README.md 的配置系統說明：
+    - 明確說明配置優先順序（環境變數 > .env文件 > 程式預設值）
+    - 提供完整的配置步驟說明
+    - 添加配置驗證方法
+    - 添加各種配置選項的詳細說明
+  - 修正 `src/config.py` 中的預設排程時間設定
+
+#### .gitignore 文件更新  
 - **修改**: 更新 .gitignore 文件
   - 添加 `config/ip_history.json` 忽略規則
   - 添加 `ip_history_export_*.json` 忽略規則  
@@ -674,6 +688,6 @@ Register-ScheduledTask -TaskName "Discord IP Bot" -Action $action -Trigger $trig
 
 ---
 
-**文件版本**: v1.1  
+**文件版本**: v1.2  
 **最後更新**: 2024年8月4日  
 **文件狀態**: ✅ 已完成
