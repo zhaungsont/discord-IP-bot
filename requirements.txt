@@ -1,0 +1,21 @@
+# Discord IP Bot Dependencies
+# Python 3.10 required
+
+# Core dependencies
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Configuration management
+python-dotenv>=1.0.0
+
+# Discord integration (will be added later)
+# discord.py>=2.3.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Development tools
+black>=23.0.0
+flake8>=6.0.0
+isort>=5.12.0
