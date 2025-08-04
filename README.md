@@ -25,7 +25,7 @@
 當您的伺服器 IP 變化時，玩家會在 Discord 收到：
 
 ```
-Minecraft Server IP Updated: 36.230.8.13:25565
+Minecraft Server IP Updated: 36.230.8.14:25565
 ```
 
 玩家可以直接複製這個地址連線到您的 Minecraft 伺服器！
