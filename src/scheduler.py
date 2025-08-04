@@ -71,8 +71,16 @@ class SchedulerManager:
         self.logger = self.log_manager.get_logger("scheduler")
         self.scheduler_logger = self.log_manager.get_scheduler_logger()
 
-        # 核心組件
-        self.ip_detector = IPDetector()
+        # 核心組件 - 整合歷史管理
+        ip_history_config = self.config.get_ip_history_config()
+        ip_detector_config = self.config.get_ip_config()
+
+        # 將歷史配置合併到IP檢測器配置中
+        ip_detector_config.update(
+            {"ip_history_file": self.config.get_history_file_path()}
+        )
+
+        self.ip_detector = IPDetector(ip_detector_config)
         webhook_url = self.config.get("discord", "webhook_url")
         self.discord_client = DiscordClient(webhook_url)
 
@@ -203,10 +211,10 @@ class SchedulerManager:
 
     def _execute_ip_check(self, mode: str = "排程") -> bool:
         """
-        執行IP檢測任務
+        執行IP檢測任務（使用新的智能變化檢測）
 
         Args:
-            mode: 執行模式
+            mode: 執行模式 ("排程", "手動", "測試")
 
         Returns:
             是否成功
@@ -216,19 +224,28 @@ class SchedulerManager:
             success = False
 
             try:
+                # 映射中文模式到英文（for IPDetector）
+                mode_mapping = {"排程": "scheduled", "手動": "manual", "測試": "test"}
+                detector_mode = mode_mapping.get(mode, "scheduled")
+
                 self.logger.info(f"開始執行IP檢測 - 模式: {mode}")
                 self._add_execution_record(mode, "開始執行", "初始化中...")
 
-                # 檢測IP
-                ip_result = self.ip_detector.check_and_update()
+                # 使用新的智能檢測方法
+                ip_result = self.ip_detector.check_ip_with_history(detector_mode)
 
-                if not ip_result["success"]:
-                    self._add_execution_record(mode, "IP檢測", "失敗", "無法獲取IP")
+                # 檢查是否有錯誤
+                if ip_result.get("error"):
+                    self._add_execution_record(
+                        mode, "IP檢測", "失敗", ip_result["error"]
+                    )
                     self.log_manager.log_execution(mode, "IP檢測", "失敗")
                     return False
 
-                current_ips = ip_result["current_ips"]
-                public_ip = current_ips.get("public_ip", "無法獲取")
+                public_ip = ip_result.get("public_ip", "無法獲取")
+                local_ip = ip_result.get("local_ip", "無法獲取")
+                has_changed = ip_result.get("has_changed", False)
+                should_notify = ip_result.get("should_notify", False)
 
                 if public_ip == "無法獲取":
                     self._add_execution_record(mode, "IP檢測", "失敗", "公共IP無法獲取")
@@ -237,60 +254,83 @@ class SchedulerManager:
                     )
                     return False
 
-                self._add_execution_record(mode, "IP檢測", "成功", f"IP: {public_ip}")
+                # 記錄IP檢測成功
+                ip_details = f"公共IP: {public_ip}"
+                if ip_result.get("warnings"):
+                    ip_details += f" (警告: {', '.join(ip_result['warnings'])})"
 
-                # 決定是否發送Discord通知
-                should_send = False
-                send_reason = ""
+                self._add_execution_record(mode, "IP檢測", "成功", ip_details)
 
-                if mode == "手動" or mode == "測試":
-                    should_send = True
-                    send_reason = f"{mode}執行"
+                # 記錄IP變化狀態
+                if has_changed:
+                    self._add_execution_record(
+                        mode, "IP變化檢測", "IP有變化", f"新IP: {public_ip}"
+                    )
+                    self.log_manager.log_ip_change("歷史記錄", public_ip, mode)
                 else:
-                    # 排程模式：檢查IP是否有變化
-                    ip_changed = ip_result.get("ip_changed", False)
-                    if ip_changed:
-                        should_send = True
-                        send_reason = "IP已變化"
-                        old_ip = ip_result.get("previous_ips", {}).get(
-                            "public_ip", "未知"
-                        )
-                        self.log_manager.log_ip_change(old_ip, public_ip, mode)
-                    else:
-                        send_reason = "IP無變化，跳過發送"
-                        self.log_manager.log_no_ip_change(public_ip, mode)
+                    self._add_execution_record(
+                        mode, "IP變化檢測", "IP無變化", f"IP: {public_ip}"
+                    )
+                    self.log_manager.log_no_ip_change(public_ip, mode)
 
-                # 發送Discord通知
-                if should_send and mode != "測試":
+                # 根據智能邏輯決定是否發送Discord通知
+                if should_notify:
                     try:
+                        # 構建IP資料字典給Discord客戶端
+                        current_ips = {
+                            "public_ip": public_ip,
+                            "local_ip": local_ip,
+                            "timestamp": ip_result.get("timestamp"),
+                        }
+
                         discord_success = (
                             self.discord_client.send_minecraft_server_notification(
                                 current_ips
                             )
                         )
+
                         if discord_success:
                             self._add_execution_record(
-                                mode, "Discord通知", "發送成功", f"IP: {public_ip}"
+                                mode,
+                                "Discord通知",
+                                "Discord發送成功",
+                                f"IP: {public_ip}",
                             )
                             self.log_manager.log_discord_send(public_ip, True, mode)
                         else:
                             self._add_execution_record(
-                                mode, "Discord通知", "發送失敗", f"IP: {public_ip}"
+                                mode,
+                                "Discord通知",
+                                "Discord發送失敗",
+                                f"IP: {public_ip}",
                             )
                             self.log_manager.log_discord_send(public_ip, False, mode)
                             return False
+
                     except Exception as e:
                         self._add_execution_record(
-                            mode, "Discord通知", "發送失敗", f"錯誤: {str(e)}"
+                            mode, "Discord通知", "Discord發送失敗", f"錯誤: {str(e)}"
                         )
                         self.logger.error(f"Discord發送失敗: {e}")
                         return False
                 else:
+                    # 解釋為什麼不發送通知
+                    if mode == "測試":
+                        reason = "測試模式不發送Discord"
+                    elif mode == "排程" and not has_changed:
+                        reason = "IP無變化，跳過發送"
+                    else:
+                        reason = "智能邏輯決定跳過發送"
+
                     self._add_execution_record(
-                        mode, "Discord通知", send_reason, f"IP: {public_ip}"
+                        mode, "Discord通知", reason, f"IP: {public_ip}"
                     )
 
-                self._add_execution_record(mode, "任務完成", "成功", f"IP: {public_ip}")
+                # 記錄執行完成
+                execution_summary = (
+                    f"IP={public_ip}, 變化={has_changed}, 通知={should_notify}"
+                )
+                self._add_execution_record(mode, "任務完成", "成功", execution_summary)
                 success = True
                 self.last_execution_time = datetime.now()
 
@@ -321,17 +361,17 @@ class SchedulerManager:
         return success
 
     def test_task(self) -> bool:
-        """測試任務：檢測IP但不發送Discord"""
+        """測試任務：檢測IP但不發送Discord（使用新的智能檢測）"""
         self.logger.info("執行測試任務")
         success = self._execute_ip_check("測試")
+
+        # 記錄測試執行結果
         if success:
-            # 取得最後檢測的IP
-            try:
-                ip_result = self.ip_detector.check_and_update()
-                public_ip = ip_result.get("current_ips", {}).get("public_ip", "未知")
-                self.log_manager.log_test_execution(public_ip)
-            except Exception:
-                self.log_manager.log_test_execution("檢測失敗")
+            # IP 資訊已經在 _execute_ip_check 中處理了
+            self.log_manager.log_test_execution("測試完成")
+        else:
+            self.log_manager.log_test_execution("測試失敗")
+
         return success
 
     def start_daemon(self):

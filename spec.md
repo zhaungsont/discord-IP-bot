@@ -11,6 +11,9 @@ Discord IP Bot - 自動化IP地址監控與通知機器人
 ### 核心功能
 - 🔍 自動檢測本機IP地址（內網IP與外網IP）
 - 📅 每日定時自動執行
+- 🎯 **智能變化檢測**：只有IP變化時才發送通知（排程模式）
+- 📱 **手動執行模式**：立即檢測並發送通知（無論IP是否變化）
+- 💾 **IP歷史管理**：持久化記錄IP變化歷史與統計資訊
 - 💬 發送格式化訊息到Discord頻道
 - 📝 完整的日誌記錄與錯誤處理
 - 🔒 安全的設定檔管理
@@ -49,13 +52,13 @@ Discord IP Bot - 自動化IP地址監控與通知機器人
 - [x] **任務1.4**: 開發環境設定指南 ✅ **已完成**
 
 ### 第二階段：核心模組開發
-- [x] **任務2.1**: IP檢測模組開發 ✅ **已完成**
+- [x] **任務2.1**: IP檢測模組開發 ⚠️ **需要更新**
   - ✅ 本地IP檢測功能 (MacOS測試通過)
   - ✅ 公共IP檢測功能 (多服務備援)
-  - ✅ IP變化比較功能
-  - ✅ 歷史記錄管理
+  - 🔄 **需要重新實現**: 智能IP變化檢測機制
+  - 🔄 **需要重新實現**: 與歷史管理模組整合
   - ✅ 跨平台相容性 (MacOS驗證)
-  - ✅ 完整單元測試與整合測試
+  - 🔄 **需要更新**: 測試以支援新的變化檢測邏輯
 - [x] **任務2.2**: Discord通信模組開發 ✅ **已完成**
   - ✅ Discord Webhook API 通信功能 (MacOS測試通過)
   - ✅ 優化訊息格式化 ("Minecraft Server IP: {ip}:25565")
@@ -64,14 +67,31 @@ Discord IP Bot - 自動化IP地址監控與通知機器人
   - ✅ 完整單元測試 (22/22 通過)
   - ✅ 模組整合測試 (與IP detector整合)
   - ✅ 簡化環境變數設定 (只需DISCORD_WEBHOOK_URL)
-- [ ] **任務2.3**: 設定管理模組開發
-- [ ] **任務2.4**: 日誌系統模組開發
+- [ ] **任務2.3**: IP歷史管理模組開發 🆕 **新增**
+  - 📝 IP歷史記錄檔案格式設計
+  - 💾 持久化存儲實現
+  - 🔍 IP變化檢測邏輯
+  - 📊 歷史統計與分析功能
+  - 🧹 自動清理與備份機制
+  - 🔒 檔案讀寫安全性處理
+  - ✅ 完整單元測試
+- [ ] **任務2.4**: 設定管理模組開發 ⚠️ **需要更新**
+  - 🔄 加入IP歷史配置支援
+- [ ] **任務2.5**: 日誌系統模組開發
 
 ### 第三階段：排程與整合
-- [ ] **任務3.1**: 排程系統實現
-- [ ] **任務3.2**: 主程式邏輯整合
+- [ ] **任務3.1**: 排程系統實現 ⚠️ **需要更新**
+  - 🔄 **智能排程邏輯**: 只有IP變化時才發送Discord通知
+  - 🔄 **手動執行模式**: 強制發送通知並更新歷史記錄
+  - 🔄 **測試模式**: 模擬檢測但不影響歷史記錄
+- [ ] **任務3.2**: 主程式邏輯整合 ⚠️ **需要更新**
+  - 🔄 整合IP歷史管理模組
+  - 🔄 實現不同執行模式的邏輯分支
 - [ ] **任務3.3**: 錯誤處理機制
-- [ ] **任務3.4**: 單元測試撰寫
+- [ ] **任務3.4**: 單元測試撰寫 ⚠️ **需要更新**
+  - 🔄 新增IP變化檢測測試
+  - 🔄 新增歷史記錄管理測試
+  - 🔄 新增整合流程測試
 
 ### 第四階段：部署與文件
 - [ ] **任務4.1**: 部署腳本開發
@@ -87,6 +107,7 @@ discord-IP-bot/
 ├── src/                    # 主要程式碼目錄
 │   ├── __init__.py
 │   ├── ip_detector.py      # IP檢測模組
+│   ├── ip_history.py       # IP歷史記錄管理模組
 │   ├── discord_client.py   # Discord通信模組
 │   ├── scheduler.py        # 排程管理模組
 │   ├── config.py          # 設定管理模組
@@ -97,7 +118,8 @@ discord-IP-bot/
 ├── .env.example          # 環境變數範例
 ├── .env                  # 實際環境變數（git ignore）
 ├── config/               # 設定檔目錄
-│   └── default.json      # 預設設定檔
+│   ├── default.json      # 預設設定檔
+│   └── ip_history.json   # IP歷史記錄檔案
 ├── logs/                 # 日誌檔目錄
 ├── scripts/              # 部署與維護腳本
 │   ├── install.sh        # Linux/Mac安裝腳本
@@ -125,6 +147,7 @@ graph TB
     B --> E[IP檢測模組 ip_detector.py]
     E --> F[本地IP檢測]
     E --> G[外網IP檢測]
+    E --> N[IP歷史管理 ip_history.py]
     
     B --> H[Discord通信模組 discord_client.py]
     H --> I[訊息格式化]
@@ -135,18 +158,26 @@ graph TB
     
     D --> M[日誌檔案 logs/]
     
+    N --> O[IP歷史記錄 config/ip_history.json]
+    N --> P[變化檢測邏輯]
+    N --> Q[歷史統計分析]
+    
     style A fill:#e1f5fe
     style B fill:#f3e5f5
     style E fill:#e8f5e8
     style H fill:#fff3e0
+    style N fill:#f1f8e9
 ```
 
 ### 資料流程圖
+
+#### 排程模式（智能變化檢測）
 ```mermaid
 sequenceDiagram
     participant S as 系統排程器
     participant M as 主程式
     participant IP as IP檢測模組
+    participant H as IP歷史管理
     participant DC as Discord客戶端
     participant D as Discord伺服器
     participant L as 日誌系統
@@ -156,14 +187,53 @@ sequenceDiagram
     M->>IP: 請求IP檢測
     IP->>IP: 檢測本地IP
     IP->>IP: 檢測外網IP
-    IP-->>M: 返回IP資訊
+    IP->>H: 讀取上次記錄的IP
+    H-->>IP: 返回歷史IP資料
+    IP->>IP: 比較IP是否變化
+    
+    alt IP有變化
+        IP-->>M: 返回IP資訊 + 變化標記
+        M->>DC: 傳送IP資料
+        DC->>DC: 格式化訊息
+        DC->>D: 發送到Discord頻道
+        D-->>DC: 確認訊息送達
+        DC-->>M: 返回執行結果
+        M->>H: 更新IP歷史記錄
+        M->>L: 記錄發送成功
+    else IP無變化
+        IP-->>M: 返回IP資訊 + 無變化標記
+        M->>H: 記錄檢測事件（不更新IP）
+        M->>L: 記錄跳過發送
+    end
+    
+    M->>S: 完成執行
+```
+
+#### 手動模式（強制發送）
+```mermaid
+sequenceDiagram
+    participant U as 用戶
+    participant M as 主程式
+    participant IP as IP檢測模組
+    participant H as IP歷史管理
+    participant DC as Discord客戶端
+    participant D as Discord伺服器
+    participant L as 日誌系統
+
+    U->>M: 手動執行命令
+    M->>L: 記錄手動執行
+    M->>IP: 請求IP檢測
+    IP->>IP: 檢測本地IP
+    IP->>IP: 檢測外網IP
+    IP-->>M: 返回IP資訊（強制發送）
     M->>DC: 傳送IP資料
     DC->>DC: 格式化訊息
     DC->>D: 發送到Discord頻道
     D-->>DC: 確認訊息送達
     DC-->>M: 返回執行結果
-    M->>L: 記錄執行結果
-    M->>S: 完成執行
+    M->>H: 更新IP歷史記錄
+    M->>L: 記錄手動執行完成
+    M-->>U: 返回執行結果
 ```
 
 ## 🔧 技術實現方案
@@ -184,6 +254,10 @@ sequenceDiagram
 class IPDetector:
     """IP地址檢測類別"""
     
+    def __init__(self, config: dict = None, history_manager=None):
+        """初始化IP檢測器"""
+        pass
+    
     def get_local_ip(self) -> str:
         """獲取本地內網IP地址"""
         pass
@@ -196,12 +270,123 @@ class IPDetector:
         """獲取所有IP資訊"""
         pass
     
+    def check_ip_with_history(self, mode: str = "scheduled") -> dict:
+        """檢測IP並與歷史記錄比較
+        
+        Args:
+            mode: 執行模式 ("scheduled", "manual", "test")
+            
+        Returns:
+            dict: {
+                "local_ip": str,
+                "public_ip": str,
+                "has_changed": bool,
+                "should_notify": bool,
+                "mode": str,
+                "timestamp": str
+            }
+        """
+        pass
+    
     def compare_with_last(self, current_ips: dict) -> bool:
         """與上次記錄比較是否有變化"""
         pass
 ```
 
-#### 2. Discord通信模組 (discord_client.py)
+#### 2. IP歷史管理模組 (ip_history.py)
+```python
+class IPHistoryManager:
+    """IP歷史記錄管理器"""
+    
+    def __init__(self, history_file: str = "config/ip_history.json"):
+        """初始化歷史管理器"""
+        pass
+    
+    def load_history(self) -> dict:
+        """載入IP歷史記錄"""
+        pass
+    
+    def save_history(self, history_data: dict) -> bool:
+        """保存IP歷史記錄"""
+        pass
+    
+    def get_last_public_ip(self) -> str | None:
+        """獲取上次記錄的公共IP"""
+        pass
+    
+    def has_ip_changed(self, current_public_ip: str) -> bool:
+        """檢查公共IP是否有變化"""
+        pass
+    
+    def record_ip_check(self, ip_data: dict, mode: str, notification_sent: bool) -> bool:
+        """記錄一次IP檢測事件
+        
+        Args:
+            ip_data: IP檢測結果
+            mode: 執行模式
+            notification_sent: 是否發送了通知
+        """
+        pass
+    
+    def get_history_stats(self) -> dict:
+        """獲取歷史統計資訊"""
+        pass
+    
+    def cleanup_old_records(self, keep_days: int = 30) -> int:
+        """清理舊記錄，返回清理的記錄數"""
+        pass
+```
+
+#### 歷史記錄檔案格式 (config/ip_history.json)
+```json
+{
+  "metadata": {
+    "created_at": "2025-01-04T20:21:04+08:00",
+    "last_updated": "2025-01-04T20:21:04+08:00",
+    "version": "1.0",
+    "total_checks": 42
+  },
+  "current": {
+    "public_ip": "36.230.8.13",
+    "local_ip": "192.168.1.100",
+    "last_updated": "2025-01-04T20:21:04+08:00",
+    "last_notification_sent": "2025-01-04T09:00:15+08:00"
+  },
+  "statistics": {
+    "total_ip_changes": 5,
+    "total_notifications_sent": 12,
+    "last_change_date": "2025-01-04T09:00:15+08:00",
+    "check_frequency": {
+      "scheduled": 35,
+      "manual": 7,
+      "test": 15
+    }
+  },
+  "history": [
+    {
+      "timestamp": "2025-01-04T20:21:04+08:00",
+      "public_ip": "36.230.8.13",
+      "local_ip": "192.168.1.100",
+      "mode": "scheduled",
+      "ip_changed": false,
+      "notification_sent": false,
+      "execution_duration": 2.34
+    },
+    {
+      "timestamp": "2025-01-04T09:00:15+08:00",
+      "public_ip": "36.230.8.13",
+      "local_ip": "192.168.1.100",
+      "mode": "scheduled",
+      "ip_changed": true,
+      "notification_sent": true,
+      "execution_duration": 3.12,
+      "previous_public_ip": "203.0.113.1"
+    }
+  ]
+}
+```
+
+#### 3. Discord通信模組 (discord_client.py)
 ```python
 class DiscordClient:
     """Discord Webhook 通信客戶端"""
@@ -223,7 +408,7 @@ class DiscordClient:
         pass
 ```
 
-#### 3. 設定管理模組 (config.py)
+#### 4. 設定管理模組 (config.py)
 ```python
 class ConfigManager:
     """設定檔管理器"""
@@ -243,6 +428,14 @@ class ConfigManager:
     def get_schedule_config(self) -> dict:
         """獲取排程相關設定"""
         pass
+    
+    def get_ip_history_config(self) -> dict:
+        """獲取IP歷史記錄相關設定"""
+        pass
+    
+    def get_history_file_path(self) -> str:
+        """獲取IP歷史記錄檔案路徑"""
+        pass
 ```
 
 ### 設定檔格式
@@ -261,6 +454,11 @@ SCHEDULE_TIME=08:00
 CHECK_PUBLIC_IP=true
 CHECK_LOCAL_IP=true
 IP_CHECK_TIMEOUT=10
+
+# IP歷史記錄設定
+IP_HISTORY_FILE=config/ip_history.json
+IP_HISTORY_KEEP_DAYS=30
+IP_HISTORY_MAX_RECORDS=1000
 ```
 
 #### 設定檔 (config/default.json)
@@ -289,6 +487,14 @@ IP_CHECK_TIMEOUT=10
     "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "max_file_size": "10MB",
     "backup_count": 5
+  },
+  "ip_history": {
+    "file_path": "config/ip_history.json",
+    "keep_days": 30,
+    "max_records": 1000,
+    "auto_cleanup": true,
+    "backup_on_corruption": true,
+    "compression": false
   }
 }
 ```
@@ -457,6 +663,17 @@ Register-ScheduledTask -TaskName "Discord IP Bot" -Action $action -Trigger $trig
 
 ---
 
-**文件版本**: v1.0  
-**最後更新**: 2024年12月  
+## 📋 更新歷史
+
+### 2024-08-04
+- **修改**: 更新 .gitignore 文件
+  - 添加 `config/ip_history.json` 忽略規則
+  - 添加 `ip_history_export_*.json` 忽略規則  
+  - 添加 `data/*.json` 忽略規則
+  - 確保所有 IP 歷史和數據文件不被 git 追蹤
+
+---
+
+**文件版本**: v1.1  
+**最後更新**: 2024年8月4日  
 **文件狀態**: ✅ 已完成

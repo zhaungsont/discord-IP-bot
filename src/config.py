@@ -95,6 +95,18 @@ class ConfigManager:
                 ),
                 "max_execution_history": self._get_env_int("MAX_EXECUTION_HISTORY", 50),
             },
+            # IP 歷史記錄設定
+            "ip_history": {
+                "file_path": self._get_env("IP_HISTORY_FILE", "config/ip_history.json"),
+                "keep_days": self._get_env_int("IP_HISTORY_KEEP_DAYS", 30),
+                "max_records": self._get_env_int("IP_HISTORY_MAX_RECORDS", 1000),
+                "auto_cleanup": self._get_env_bool("IP_HISTORY_AUTO_CLEANUP", True),
+                "backup_on_corruption": self._get_env_bool(
+                    "IP_HISTORY_BACKUP_ON_CORRUPTION", True
+                ),
+                "compression": self._get_env_bool("IP_HISTORY_COMPRESSION", False),
+                "encoding": self._get_env("IP_HISTORY_ENCODING", "utf-8"),
+            },
         }
 
     def _get_env(self, key: str, default: Optional[str] = None) -> Optional[str]:
@@ -193,12 +205,25 @@ class ConfigManager:
         """取得排程設定"""
         return self.config["scheduler"].copy()
 
+    def get_ip_history_config(self) -> Dict[str, Any]:
+        """取得IP歷史記錄相關設定"""
+        return self.config["ip_history"].copy()
+
+    def get_history_file_path(self) -> str:
+        """取得IP歷史記錄檔案路徑"""
+        return self.config["ip_history"]["file_path"]
+
     def ensure_directories(self):
         """確保必要的目錄存在"""
         directories = [
             self.config["system"]["logs_dir"],
             self.config["system"]["data_dir"],
         ]
+
+        # 加入IP歷史檔案的目錄
+        history_file_path = Path(self.config["ip_history"]["file_path"])
+        if history_file_path.parent != Path("."):  # 不是當前目錄
+            directories.append(str(history_file_path.parent))
 
         for directory in directories:
             path = Path(directory)
@@ -250,6 +275,15 @@ if __name__ == "__main__":
         print(f"  應用程式名稱: {config.get('app', 'name')}")
         print(f"  排程時間: {config.get('scheduler', 'daily_time')}")
         print(f"  Discord重試次數: {config.get('discord', 'retry_attempts')}")
+        print(f"  IP歷史檔案路徑: {config.get_history_file_path()}")
+        print(f"  IP歷史保留天數: {config.get('ip_history', 'keep_days')}")
+        print()
+
+        # 測試新的IP歷史配置
+        print("📊 IP歷史配置:")
+        ip_history_config = config.get_ip_history_config()
+        for key, value in ip_history_config.items():
+            print(f"  {key}: {value}")
         print()
 
         # 確保目錄存在

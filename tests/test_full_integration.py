@@ -72,7 +72,7 @@ class TestFullIntegration(unittest.TestCase):
 
     @patch("src.ip_detector.requests.get")
     def test_ip_detection_integration(self, mock_get):
-        """測試IP檢測與其他模組整合"""
+        """測試IP檢測與其他模組整合（新版智能檢測）"""
         print("🧪 測試IP檢測整合...")
 
         # 模擬網路回應
@@ -84,19 +84,24 @@ class TestFullIntegration(unittest.TestCase):
         # 建立配置
         config = ConfigManager()
 
-        # 測試IP檢測
+        # 測試新的IP檢測方法
         ip_detector = IPDetector()
-        ip_result = ip_detector.check_and_update()
 
-        self.assertTrue(ip_result["success"])
-        self.assertIn("current_ips", ip_result)
+        # 測試不同模式
+        test_modes = ["scheduled", "manual", "test"]
+        for mode in test_modes:
+            ip_result = ip_detector.check_ip_with_history(mode)
 
-        current_ips = ip_result["current_ips"]
-        self.assertIn("local_ip", current_ips)
-        self.assertIn("public_ip", current_ips)
+            self.assertIsNone(ip_result.get("error"))
+            self.assertIn("local_ip", ip_result)
+            self.assertIn("public_ip", ip_result)
+            self.assertIn("has_changed", ip_result)
+            self.assertIn("should_notify", ip_result)
 
-        print(f"  🏠 檢測到本地IP: {current_ips['local_ip']}")
-        print(f"  🌍 檢測到公共IP: {current_ips['public_ip']}")
+            print(
+                f"  🔧 模式 {mode}: IP={ip_result['public_ip']}, 變化={ip_result['has_changed']}, 通知={ip_result['should_notify']}"
+            )
+
         print("  ✅ IP檢測整合測試通過")
 
     @patch("src.discord_client.requests.post")
@@ -289,6 +294,209 @@ class TestFullIntegration(unittest.TestCase):
 
         print(f"  🎮 Minecraft通知格式: {sent_message}")
         print("  ✅ Minecraft通知格式測試通過")
+
+    @patch("src.ip_detector.requests.get")
+    def test_ip_change_detection_logic(self, mock_get):
+        """測試IP變化檢測邏輯（新版智能檢測）"""
+        print("🧪 測試IP變化檢測邏輯...")
+
+        import tempfile
+        import os
+
+        # 創建臨時歷史檔案
+        with tempfile.TemporaryDirectory() as temp_dir:
+            history_file = os.path.join(temp_dir, "test_history.json")
+
+            # 模擬不同的IP回應
+            ip_responses = ["203.0.113.1", "203.0.113.1", "203.0.113.2"]
+            response_index = [0]  # 使用列表來在nested function中修改
+
+            def mock_get_side_effect(*args, **kwargs):
+                mock_response = MagicMock()
+                mock_response.text = ip_responses[response_index[0] % len(ip_responses)]
+                mock_response.status_code = 200
+                response_index[0] += 1
+                return mock_response
+
+            mock_get.side_effect = mock_get_side_effect
+
+            # 建立配置，指定歷史檔案路徑
+            config = ConfigManager()
+            ip_config = config.get_ip_config()
+            ip_config["ip_history_file"] = history_file
+
+            # 測試IP檢測器
+            ip_detector = IPDetector(ip_config)
+
+            # 第一次檢測：首次執行，應該發送通知
+            result1 = ip_detector.check_ip_with_history("scheduled")
+            self.assertTrue(result1["has_changed"])  # 首次算變化
+            self.assertTrue(result1["should_notify"])  # 排程模式首次變化應通知
+            self.assertEqual(result1["public_ip"], "203.0.113.1")
+
+            # 第二次檢測：相同IP，排程模式不應發送通知
+            result2 = ip_detector.check_ip_with_history("scheduled")
+            self.assertFalse(result2["has_changed"])  # IP無變化
+            self.assertFalse(result2["should_notify"])  # 排程模式無變化不通知
+            self.assertEqual(result2["public_ip"], "203.0.113.1")
+
+            # 第三次檢測：IP變化，排程模式應發送通知
+            result3 = ip_detector.check_ip_with_history("scheduled")
+            self.assertTrue(result3["has_changed"])  # IP有變化
+            self.assertTrue(result3["should_notify"])  # 排程模式有變化應通知
+            self.assertEqual(result3["public_ip"], "203.0.113.2")
+
+            print(
+                f"  🔄 第一次檢測: IP={result1['public_ip']}, 變化={result1['has_changed']}, 通知={result1['should_notify']}"
+            )
+            print(
+                f"  🔄 第二次檢測: IP={result2['public_ip']}, 變化={result2['has_changed']}, 通知={result2['should_notify']}"
+            )
+            print(
+                f"  🔄 第三次檢測: IP={result3['public_ip']}, 變化={result3['has_changed']}, 通知={result3['should_notify']}"
+            )
+
+        print("  ✅ IP變化檢測邏輯測試通過")
+
+    @patch("src.discord_client.requests.post")
+    @patch("src.ip_detector.requests.get")
+    def test_manual_vs_scheduled_mode_behavior(self, mock_ip_get, mock_discord_post):
+        """測試手動模式與排程模式的不同行為"""
+        print("🧪 測試手動模式與排程模式行為差異...")
+
+        import tempfile
+        import os
+
+        # 創建臨時歷史檔案
+        with tempfile.TemporaryDirectory() as temp_dir:
+            history_file = os.path.join(temp_dir, "mode_test_history.json")
+
+            # 模擬相同的IP回應（模擬IP無變化情況）
+            mock_ip_response = MagicMock()
+            mock_ip_response.text = "203.0.113.1"
+            mock_ip_response.status_code = 200
+            mock_ip_get.return_value = mock_ip_response
+
+            # 模擬Discord成功回應
+            mock_discord_response = MagicMock()
+            mock_discord_response.status_code = 204
+            mock_discord_post.return_value = mock_discord_response
+
+            # 建立配置
+            config = ConfigManager()
+            ip_config = config.get_ip_config()
+            ip_config["ip_history_file"] = history_file
+
+            # 建立排程管理器
+            scheduler = SchedulerManager(config)
+
+            # 模擬已有IP記錄的情況（先執行一次建立歷史）
+            scheduler.test_task()  # 建立初始歷史記錄
+            mock_discord_post.reset_mock()  # 重置mock以便後續檢查
+
+            # 測試排程模式：IP無變化時不應發送
+            print("  🔄 測試排程模式（IP無變化）...")
+            scheduled_success = scheduler.scheduled_task()
+
+            # 檢查排程模式下是否跳過了Discord發送
+            # 由於IP無變化，排程模式不應該調用Discord API
+            print(f"    Discord API 被調用次數: {mock_discord_post.call_count}")
+
+            # 重置mock
+            mock_discord_post.reset_mock()
+
+            # 測試手動模式：即使IP無變化也應發送
+            print("  🔧 測試手動模式（IP無變化）...")
+            manual_success = scheduler.manual_task()
+
+            # 檢查手動模式下是否調用了Discord API
+            self.assertTrue(mock_discord_post.called, "手動模式應該總是發送Discord通知")
+            print(f"    Discord API 被調用次數: {mock_discord_post.call_count}")
+
+            # 驗證發送的訊息格式
+            call_args = mock_discord_post.call_args
+            sent_message = call_args[1]["json"]["content"]
+            expected_format = "Minecraft Server IP: 203.0.113.1:25565"
+            self.assertEqual(sent_message, expected_format)
+
+            print(f"  📱 手動模式發送訊息: {sent_message}")
+
+        print("  ✅ 模式行為差異測試通過")
+
+    @patch("src.ip_detector.requests.get")
+    def test_ip_history_persistence(self, mock_get):
+        """測試IP歷史記錄持久化"""
+        print("🧪 測試IP歷史記錄持久化...")
+
+        import tempfile
+        import os
+        import json
+
+        # 創建臨時歷史檔案
+        with tempfile.TemporaryDirectory() as temp_dir:
+            history_file = os.path.join(temp_dir, "persistence_test.json")
+
+            # 模擬IP回應
+            mock_response = MagicMock()
+            mock_response.text = "203.0.113.1"
+            mock_response.status_code = 200
+            mock_get.return_value = mock_response
+
+            # 建立配置
+            config = ConfigManager()
+            ip_config = config.get_ip_config()
+            ip_config["ip_history_file"] = history_file
+
+            # 第一個IP檢測器實例
+            ip_detector1 = IPDetector(ip_config)
+            result1 = ip_detector1.check_ip_with_history("manual")
+
+            # 檢查歷史檔案是否被創建
+            self.assertTrue(os.path.exists(history_file))
+
+            # 讀取歷史檔案內容
+            with open(history_file, "r", encoding="utf-8") as f:
+                history_data = json.load(f)
+
+            # 驗證歷史記錄結構
+            self.assertIn("metadata", history_data)
+            self.assertIn("current", history_data)
+            self.assertIn("statistics", history_data)
+            self.assertIn("history", history_data)
+
+            # 驗證記錄內容
+            self.assertEqual(history_data["current"]["public_ip"], "203.0.113.1")
+            self.assertEqual(history_data["metadata"]["total_checks"], 1)
+            self.assertEqual(len(history_data["history"]), 1)
+
+            # 創建第二個IP檢測器實例（模擬重啟）
+            ip_detector2 = IPDetector(ip_config)
+
+            # 驗證歷史記錄被正確載入
+            last_ip = ip_detector2.history_manager.get_last_public_ip()
+            self.assertEqual(last_ip, "203.0.113.1")
+
+            # 模擬IP變化
+            mock_response.text = "203.0.113.2"
+            result2 = ip_detector2.check_ip_with_history("scheduled")
+
+            # 驗證變化被正確檢測
+            self.assertTrue(result2["has_changed"])
+            self.assertEqual(result2["public_ip"], "203.0.113.2")
+
+            # 再次讀取歷史檔案，驗證更新
+            with open(history_file, "r", encoding="utf-8") as f:
+                updated_history = json.load(f)
+
+            self.assertEqual(updated_history["current"]["public_ip"], "203.0.113.2")
+            self.assertEqual(updated_history["metadata"]["total_checks"], 2)
+            self.assertEqual(len(updated_history["history"]), 2)
+
+            print(f"  💾 第一次記錄: {history_data['current']['public_ip']}")
+            print(f"  💾 第二次記錄: {updated_history['current']['public_ip']}")
+            print(f"  📊 總檢測次數: {updated_history['metadata']['total_checks']}")
+
+        print("  ✅ IP歷史記錄持久化測試通過")
 
 
 class TestMainApplication(unittest.TestCase):

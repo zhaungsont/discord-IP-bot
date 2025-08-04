@@ -15,6 +15,21 @@ from pathlib import Path
 import requests
 from urllib3.exceptions import InsecureRequestWarning
 import urllib3
+import time
+from datetime import datetime, timezone
+
+# 嘗試導入 IPHistoryManager，如果失敗則使用舊的歷史記錄方法
+try:
+    from .ip_history import IPHistoryManager
+
+    HISTORY_MANAGER_AVAILABLE = True
+except ImportError:
+    try:
+        from ip_history import IPHistoryManager
+
+        HISTORY_MANAGER_AVAILABLE = True
+    except ImportError:
+        HISTORY_MANAGER_AVAILABLE = False
 
 # 禁用 SSL 警告以避免在某些環境下的問題
 urllib3.disable_warnings(InsecureRequestWarning)
@@ -43,12 +58,13 @@ class IPDetector:
     - 儲存IP歷史記錄
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, history_manager=None):
         """
         初始化IP檢測器
 
         Args:
             config: 設定字典，包含逾時設定、重試次數等
+            history_manager: IP歷史管理器實例，如果不提供則自動創建
         """
         self.logger = logging.getLogger(__name__)
 
@@ -63,14 +79,30 @@ class IPDetector:
                 "https://ident.me",
                 "https://checkip.amazonaws.com",
             ],
-            "history_file": "logs/ip_history.json",
+            "history_file": "logs/ip_history.json",  # 舊版相容性
         }
 
         # 更新使用者提供的設定
         if config:
             self.config.update(config)
 
-        # 確保日誌目錄存在
+        # 初始化歷史管理器
+        self.history_manager = history_manager
+        if self.history_manager is None and HISTORY_MANAGER_AVAILABLE:
+            try:
+                # 如果有新的歷史管理器，使用它
+                history_file = self.config.get(
+                    "ip_history_file", "config/ip_history.json"
+                )
+                self.history_manager = IPHistoryManager(history_file, self.config)
+                self.logger.info("使用新的IP歷史管理系統")
+            except Exception as e:
+                self.logger.warning(f"初始化IP歷史管理器失敗: {e}，使用舊版歷史記錄")
+                self.history_manager = None
+        elif not HISTORY_MANAGER_AVAILABLE:
+            self.logger.warning("IP歷史管理器不可用，使用舊版歷史記錄")
+
+        # 確保日誌目錄存在（舊版相容性）
         Path(self.config["history_file"]).parent.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"IP檢測器初始化完成 - 平台: {platform.system()}")
@@ -263,16 +295,141 @@ class IPDetector:
         self.logger.info(f"IP檢測完成: {result}")
         return result
 
-    def _get_current_timestamp(self) -> str:
+    def check_ip_with_history(self, mode: str = "scheduled") -> Dict[str, Any]:
         """
-        獲取當前時間戳記
+        檢測IP並與歷史記錄比較（新版主要方法）
+
+        Args:
+            mode: 執行模式 ("scheduled", "manual", "test")
 
         Returns:
-            str: ISO格式的時間戳記
+            dict: {
+                "local_ip": str,
+                "public_ip": str,
+                "has_changed": bool,
+                "should_notify": bool,
+                "mode": str,
+                "timestamp": str,
+                "execution_duration": float,
+                "error": str | None
+            }
         """
-        from datetime import datetime
+        start_time = time.time()
 
-        return datetime.now().isoformat()
+        try:
+            # 獲取當前IP資訊
+            current_ips = self.get_all_ips()
+            public_ip = current_ips.get("public_ip")
+            local_ip = current_ips.get("local_ip")
+
+            # 檢查是否有歷史管理器
+            if self.history_manager:
+                # 使用新的歷史管理系統
+                has_changed = False
+                if public_ip and public_ip != "無法獲取":
+                    has_changed = self.history_manager.has_ip_changed(public_ip)
+
+                # 決定是否應該發送通知
+                should_notify = self._should_notify(mode, has_changed)
+
+                result = {
+                    "local_ip": local_ip,
+                    "public_ip": public_ip,
+                    "has_changed": has_changed,
+                    "should_notify": should_notify,
+                    "mode": mode,
+                    "timestamp": self._get_current_timestamp(),
+                    "execution_duration": round(time.time() - start_time, 2),
+                    "error": None,
+                    "using_new_history": True,
+                }
+
+                # 如果有錯誤，添加到結果中
+                if current_ips.get("errors"):
+                    result["warnings"] = current_ips["errors"]
+
+                # 記錄到歷史（如果不是測試模式）
+                if mode != "test":
+                    self.history_manager.record_ip_check(
+                        current_ips, mode, should_notify, result["execution_duration"]
+                    )
+
+                return result
+
+            else:
+                # 使用舊版歷史系統進行向後相容
+                comparison = self.compare_with_last(current_ips)
+                has_changed = comparison.get("changed", False)
+                should_notify = self._should_notify(mode, has_changed)
+
+                result = {
+                    "local_ip": local_ip,
+                    "public_ip": public_ip,
+                    "has_changed": has_changed,
+                    "should_notify": should_notify,
+                    "mode": mode,
+                    "timestamp": current_ips.get("timestamp"),
+                    "execution_duration": round(time.time() - start_time, 2),
+                    "error": None,
+                    "using_new_history": False,
+                    "comparison": comparison,
+                }
+
+                # 儲存歷史記錄（舊版方法）
+                if mode != "test":
+                    self.save_ip_history(current_ips)
+
+                return result
+
+        except Exception as e:
+            error_msg = f"IP檢測失敗: {e}"
+            self.logger.error(error_msg)
+
+            return {
+                "local_ip": "無法獲取",
+                "public_ip": "無法獲取",
+                "has_changed": False,
+                "should_notify": False,
+                "mode": mode,
+                "timestamp": self._get_current_timestamp(),
+                "execution_duration": round(time.time() - start_time, 2),
+                "error": error_msg,
+                "using_new_history": self.history_manager is not None,
+            }
+
+    def _should_notify(self, mode: str, has_changed: bool) -> bool:
+        """
+        根據模式和IP變化情況決定是否應該發送通知
+
+        Args:
+            mode: 執行模式
+            has_changed: IP是否有變化
+
+        Returns:
+            bool: 是否應該發送通知
+        """
+        if mode == "test":
+            # 測試模式永不發送通知
+            return False
+        elif mode == "manual":
+            # 手動模式總是發送通知
+            return True
+        elif mode == "scheduled":
+            # 排程模式只有在IP變化時才發送通知
+            return has_changed
+        else:
+            # 未知模式，預設不發送
+            self.logger.warning(f"未知的執行模式: {mode}")
+            return False
+
+    def _get_current_timestamp(self) -> str:
+        """
+        獲取當前時間戳記（UTC時間）
+
+        Returns:
+            str: ISO格式的時間戳記，包含時區資訊
+        """
+        return datetime.now(timezone.utc).isoformat()
 
     def save_ip_history(self, ip_data: Dict[str, str]) -> None:
         """

@@ -50,3 +50,8 @@ Desktop.ini
 config/local.json
 src/__pycache__/
 tests/__pycache__/
+
+# IP 歷史和數據文件
+config/ip_history.json
+ip_history_export_*.json
+data/*.json
