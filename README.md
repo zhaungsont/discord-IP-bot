@@ -25,7 +25,7 @@
 當您的伺服器 IP 變化時，玩家會在 Discord 收到：
 
 ```
-Minecraft Server IP: 36.230.8.13:25565
+Minecraft Server IP Updated: 36.230.8.13:25565
 ```
 
 玩家可以直接複製這個地址連線到您的 Minecraft 伺服器！
@@ -447,7 +447,7 @@ LOG_LEVEL=ERROR
 
 ```bash
 # 預設格式
-DISCORD_MESSAGE_TEMPLATE=Minecraft Server IP: {ip}:25565
+DISCORD_MESSAGE_TEMPLATE=Minecraft Server IP Updated: {ip}:25565
 
 # 自訂格式
 DISCORD_MESSAGE_TEMPLATE=🎮 我的遊戲伺服器：{ip}:25565

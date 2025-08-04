@@ -66,7 +66,7 @@ Discord IP Bot - 自動化IP地址監控與通知機器人
   - 🔄 **需要更新**: 測試以支援新的變化檢測邏輯
 - [x] **任務2.2**: Discord通信模組開發 ✅ **已完成**
   - ✅ Discord Webhook API 通信功能 (MacOS測試通過)
-  - ✅ 優化訊息格式化 ("Minecraft Server IP: {ip}:25565")
+  - ✅ 優化訊息格式化 ("Minecraft Server IP Updated: {ip}:25565")
   - ✅ 完整錯誤處理與重試機制
   - ✅ 跨平台相容性 (MacOS驗證)
   - ✅ 完整單元測試 (22/22 通過)

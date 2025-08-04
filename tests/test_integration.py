@@ -248,7 +248,7 @@ class TestIntegrationEndToEnd(unittest.TestCase):
                 # 驗證訊息格式
                 call_args = mock_discord_post.call_args
                 sent_message = call_args[1]["json"]["content"]
-                expected_message = f"Minecraft Server IP: {server_ip}:25565"
+                expected_message = f"Minecraft Server IP Updated: {server_ip}:25565"
                 self.assertEqual(sent_message, expected_message)
 
                 print(f"✅ Minecraft伺服器IP通知發送成功: {sent_message}")

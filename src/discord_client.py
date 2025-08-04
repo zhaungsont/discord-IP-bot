@@ -69,7 +69,7 @@ class DiscordClient:
             "timeout": 10,
             "retry_attempts": 3,
             "retry_delay": 2,
-            "message_template": "Minecraft Server IP: {ip}:25565",
+            "message_template": "Minecraft Server IP Updated: {ip}:25565",
             "max_message_length": 2000,
         }
 
@@ -350,7 +350,7 @@ def main():
         }
 
         print("💡 新的訊息格式只會顯示公共IP和端口 (玩家連線用)")
-        print("💡 訊息範例: 'Minecraft Server IP: 203.0.113.1:25565'")
+        print("💡 訊息範例: 'Minecraft Server IP Updated: 203.0.113.1:25565'")
         print("💡 實際發送需要有效的 Discord Webhook URL")
 
     except Exception as e:

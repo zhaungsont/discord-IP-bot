@@ -138,7 +138,7 @@ class TestFullIntegration(unittest.TestCase):
         self.assertTrue(mock_post.called)
         call_args = mock_post.call_args
         sent_message = call_args[1]["json"]["content"]
-        expected_message = "Minecraft Server IP: 203.0.113.1:25565"
+        expected_message = "Minecraft Server IP Updated: 203.0.113.1:25565"
         self.assertEqual(sent_message, expected_message)
 
         print(f"  📱 發送訊息: {sent_message}")
@@ -284,12 +284,12 @@ class TestFullIntegration(unittest.TestCase):
         call_args = mock_discord_post.call_args
         sent_message = call_args[1]["json"]["content"]
 
-        # 驗證格式：應該是 "Minecraft Server IP: {ip}:25565"
-        self.assertIn("Minecraft Server IP:", sent_message)
+        # 驗證格式：應該是 "Minecraft Server IP Updated: {ip}:25565"
+        self.assertIn("Minecraft Server IP Updated:", sent_message)
         self.assertIn("36.230.8.13", sent_message)
         self.assertIn(":25565", sent_message)
 
-        expected_format = "Minecraft Server IP: 36.230.8.13:25565"
+        expected_format = "Minecraft Server IP Updated: 36.230.8.13:25565"
         self.assertEqual(sent_message, expected_format)
 
         print(f"  🎮 Minecraft通知格式: {sent_message}")
@@ -416,7 +416,7 @@ class TestFullIntegration(unittest.TestCase):
             # 驗證發送的訊息格式
             call_args = mock_discord_post.call_args
             sent_message = call_args[1]["json"]["content"]
-            expected_format = "Minecraft Server IP: 203.0.113.1:25565"
+            expected_format = "Minecraft Server IP Updated: 203.0.113.1:25565"
             self.assertEqual(sent_message, expected_format)
 
             print(f"  📱 手動模式發送訊息: {sent_message}")

@@ -71,7 +71,7 @@ class TestDiscordClient(unittest.TestCase):
 
         # 測試預設格式
         result = client._format_message("192.168.1.100")
-        expected = "Minecraft Server IP: 192.168.1.100:25565"
+        expected = "Minecraft Server IP Updated: 192.168.1.100:25565"
         self.assertEqual(result, expected)
 
         # 測試自定義格式
@@ -184,7 +184,7 @@ class TestDiscordClient(unittest.TestCase):
         self.assertTrue(result)
         # 檢查發送的訊息內容
         call_args = mock_post.call_args
-        expected_message = "Minecraft Server IP: 192.168.1.100:25565"
+        expected_message = "Minecraft Server IP Updated: 192.168.1.100:25565"
         self.assertEqual(call_args[1]["json"]["content"], expected_message)
 
     def test_send_ip_notification_empty_ip(self):
@@ -299,7 +299,7 @@ class TestDiscordClient(unittest.TestCase):
 
         # 檢查訊息內容
         call_args = mock_post.call_args
-        expected_message = "Minecraft Server IP: 203.0.113.1:25565"
+        expected_message = "Minecraft Server IP Updated: 203.0.113.1:25565"
         self.assertEqual(call_args[1]["json"]["content"], expected_message)
 
     def test_send_minecraft_server_notification_no_public_ip(self):
